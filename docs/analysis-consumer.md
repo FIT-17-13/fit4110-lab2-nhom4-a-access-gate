@@ -1,66 +1,67 @@
-# Phân tích yêu cầu — vai Consumer
+# Consumer Analysis - Pair 3 Core Business -> Access Gate
 
-- Cặp đàm phán:
-- Product: A / B
-- Consumer service:
-- Provider service:
-- Người viết:
-- Ngày:
+- Negotiation pair: Pair 3 - Core Business -> Access Gate
+- Product: A3
+- Consumer service: Core Business
+- Provider service: Access Gate
+- Author: A3 Access Gate team
+- Date: 2026-05-15
 
 ---
 
-## 1. Resource Consumer cần nhận/gửi
+## 1. Resources Needed By Consumer
 
-| Resource | Consumer dùng để làm gì? | Field bắt buộc với Consumer | Field có thể tùy chọn |
+| Resource | How Consumer uses it | Required fields for Consumer | Optional fields |
 |---|---|---|---|
-| `<Resource 1>` |  |  |  |
-| `<Resource 2>` |  |  |  |
+| AccessLog | Audit campus entry/exit activity | logId, cardId, gateId, direction, timestamp, status | operatorNote |
+| GateStatus | Check whether a gate can be trusted for operations | gateId, status, lastHeartbeatAt | maintenanceReason |
+| Card | Check whether a card is active, blocked, or expired | cardId, holderId, status, expiresAt | none |
 
 ---
 
-## 2. API Consumer cần gọi
+## 2. APIs Consumer Needs To Call
 
-| Method | Path | Lúc nào gọi? | Kỳ vọng response |
+| Method | Path | When is it called? | Expected response |
 |---|---|---|---|
-| POST | `/...` |  |  |
-| GET | `/.../{id}` |  |  |
+| GET | `/access/logs/recent` | Core Business needs recent audit data | AccessLogList |
+| GET | `/access/logs/{logId}` | Core Business reviews one event | AccessLog |
+| GET | `/gates/{gateId}/status` | Core Business checks gate availability | GateStatus |
+| GET | `/cards/{cardId}` | Core Business checks card state | Card |
 
 ---
 
-## 3. Error case Consumer cần xử lý
+## 3. Error Cases Consumer Must Handle
 
-Tối thiểu 5 case.
-
-| Status | Consumer hiểu là gì? | Consumer sẽ xử lý thế nào? |
+| Status | Consumer meaning | Consumer handling |
 |---:|---|---|
-| 400 | Request sai schema | Sửa payload/log lỗi |
-| 401 | Thiếu token | Refresh/cấu hình token |
-| 403 | Không đủ quyền | Báo lỗi quyền truy cập |
-| 404 | Không tìm thấy resource | Hiển thị trạng thái không tồn tại |
-| 409 | Xung đột nghiệp vụ | Retry hoặc yêu cầu thao tác lại |
-| 422 | Vi phạm rule nghiệp vụ | Hiển thị lý do cụ thể |
+| 400 | Request parameter is invalid | Fix query/path value and log validation error |
+| 401 | Token is missing or invalid | Refresh or configure service token |
+| 403 | Core Business is not allowed to access this resource | Show authorization failure and stop retrying |
+| 404 | Requested log, gate, or card does not exist | Show not found state for audit/operator flow |
+| 500 | Access Gate has an internal issue | Retry with backoff and keep correlationId for support |
 
 ---
 
-## 4. Giả định bổ sung
+## 4. Additional Assumptions
 
-- Giả định 1:
-- Giả định 2:
-- Giả định 3:
-
----
-
-## 5. Câu hỏi cho Provider
-
-1. 
-2. 
-3. 
+- Core Business will send a Bearer token for all endpoints except `/health`.
+- Core Business can pass `X-Correlation-Id` for tracing.
+- Core Business accepts `operatorNote` and `maintenanceReason` as nullable fields.
 
 ---
 
-## 6. Rủi ro tích hợp
+## 5. Questions For Provider
 
-| Rủi ro | Tác động | Đề xuất xử lý |
+1. How long are access logs retained?
+2. What is the maximum safe value for `limit` on recent logs?
+3. Does Access Gate return manual override activity in the same log list as card swipe activity?
+
+---
+
+## 6. Integration Risks
+
+| Risk | Impact | Mitigation |
 |---|---|---|
-| Provider đổi kiểu dữ liệu | Consumer parse lỗi | Chốt type/format/pattern |
-| Provider thiếu mã lỗi | Consumer khó xử lý lỗi | Chuẩn hóa Problem Details |
+| Provider changes field names | Core Business parsing breaks | Field names are locked in OpenAPI contract |
+| Provider omits specific error detail | Operators cannot diagnose failures | All errors use ProblemDetails |
+| Provider returns a new enum value without negotiation | Consumer may treat data as unknown | Breaking enum changes require version negotiation |

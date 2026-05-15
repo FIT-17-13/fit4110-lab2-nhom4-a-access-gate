@@ -1,13 +1,13 @@
 openapi: 3.1.0
 info:
-  title: Smart Campus — Lab 02 Contract Template
+  title: Smart Campus Access Gate API
   version: 1.0.0
   description: |
-    Hợp đồng API mẫu cho Lab 02.
-    Sinh viên cần sửa lại title, description, path, schema và example theo cặp đàm phán thực tế.
+    Contract for Pair 3: Core Business calls Access Gate to query access logs,
+    gate status, and card information for audit and operational checks.
   contact:
-    name: FIT4110 Teaching Team
-    email: fit4110@example.edu.vn
+    name: A3 Access Gate Team
+    email: access-gate@example.edu.vn
 servers:
   - url: http://localhost:4010
     description: Prism mock server
@@ -15,24 +15,26 @@ servers:
     description: Class network placeholder
 tags:
   - name: health
-    description: Kiểm tra trạng thái service
-  - name: alerts
-    description: Quản lý cảnh báo Smart Campus
-  - name: events
-    description: Quản lý sự kiện nghiệp vụ
+    description: Service health checks
+  - name: access-logs
+    description: Access log queries
+  - name: gates
+    description: Gate status queries
+  - name: cards
+    description: Card information queries
 security:
   - bearerAuth: []
 paths:
   /health:
     get:
       operationId: getHealth
-      summary: Kiểm tra trạng thái service
-      description: Endpoint kiểm tra service còn hoạt động.
+      summary: Check Access Gate service health
+      description: Returns the current health status of the Access Gate API.
       tags: [health]
       security: []
       responses:
         '200':
-          description: Service đang hoạt động
+          description: Access Gate service is running
           content:
             application/json:
               schema:
@@ -41,265 +43,219 @@ paths:
                 ok:
                   value:
                     status: ok
-                    service: lab02-contract-template
-                    time: '2026-05-10T08:00:00Z'
-
-  /alerts:
-    post:
-      operationId: createAlert
-      summary: Tạo cảnh báo mới
-      description: |
-        Endpoint mẫu để Provider nhận yêu cầu tạo cảnh báo từ Consumer.
-        Sinh viên cần sửa theo cặp đàm phán thực tế.
-      tags: [alerts]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateAlertRequest'
-            examples:
-              unauthorizedAccess:
-                value:
-                  sourceService: core-business
-                  alertType: UNAUTHORIZED_ACCESS
-                  severity: HIGH
-                  message: Phát hiện truy cập trái phép tại cổng chính
-                  relatedEventId: 0196fb3d-4ad7-7d1e-9f49-5d5148d2babc
+                    service: access-gate
+                    time: '2026-05-15T08:00:00Z'
+  /access/logs/recent:
+    get:
+      operationId: listRecentAccessLogs
+      summary: List recent access logs
+      description: Core Business uses this endpoint to audit recent card swipe activity.
+      tags: [access-logs]
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/FromTime'
+        - $ref: '#/components/parameters/ToTime'
+        - $ref: '#/components/parameters/CorrelationId'
       responses:
-        '201':
-          description: Cảnh báo đã được tạo
-          headers:
-            Location:
-              description: URI của alert vừa tạo.
-              schema:
-                type: string
-                format: uri
+        '200':
+          description: Recent access logs
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Alert'
+                $ref: '#/components/schemas/AccessLogList'
               examples:
-                created:
+                recentLogs:
                   value:
-                    id: 0196fb3d-4ad7-7d1e-9f49-5d5148d2babc
-                    sourceService: core-business
-                    alertType: UNAUTHORIZED_ACCESS
-                    severity: HIGH
-                    message: Phát hiện truy cập trái phép tại cổng chính
-                    relatedEventId: 0196fb3d-4ad7-7d1e-9f49-5d5148d2babc
-                    status: OPEN
-                    createdAt: '2026-05-10T08:00:00Z'
-                    resolvedAt: null
+                    items:
+                      - logId: log-001
+                        cardId: card-001
+                        gateId: gate-main
+                        direction: IN
+                        timestamp: '2026-05-15T08:00:00Z'
+                        status: ALLOWED
+                        operatorNote: null
+                        event:
+                          eventType: CARD_SWIPE
+                          readerId: reader-main-in
+                          cardId: card-001
+                    nextCursor: null
         '400':
           $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '422':
-          $ref: '#/components/responses/UnprocessableEntity'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-
-    get:
-      operationId: listAlerts
-      summary: Lấy danh sách cảnh báo
-      description: Lấy danh sách cảnh báo với cursor-based pagination.
-      tags: [alerts]
-      parameters:
-        - $ref: '#/components/parameters/Cursor'
-        - $ref: '#/components/parameters/Limit'
-      responses:
-        '200':
-          description: Danh sách cảnh báo
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AlertPage'
-              examples:
-                firstPage:
-                  value:
-                    items:
-                      - id: 0196fb3d-4ad7-7d1e-9f49-5d5148d2babc
-                        sourceService: core-business
-                        alertType: UNAUTHORIZED_ACCESS
-                        severity: HIGH
-                        message: Phát hiện truy cập trái phép tại cổng chính
-                        relatedEventId: 0196fb3d-4ad7-7d1e-9f49-5d5148d2babc
-                        status: OPEN
-                        createdAt: '2026-05-10T08:00:00Z'
-                        resolvedAt: null
-                    nextCursor: null
-                    hasMore: false
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-
-  /alerts/recent:
-    get:
-      operationId: getRecentAlerts
-      summary: Lấy các cảnh báo gần đây
-      description: Endpoint mẫu cho cặp Analytics ↔ Core Business hoặc Frontend ↔ Core Business.
-      tags: [alerts]
-      parameters:
-        - name: limit
-          in: query
-          required: false
-          description: Số cảnh báo tối đa cần lấy.
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 100
-            default: 20
-      responses:
-        '200':
-          description: Danh sách cảnh báo gần đây
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                required: [items]
-                properties:
-                  items:
-                    type: array
-                    minItems: 0
-                    maxItems: 100
-                    items:
-                      $ref: '#/components/schemas/Alert'
-              examples:
-                recentAlerts:
-                  value:
-                    items: []
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
         '500':
           $ref: '#/components/responses/InternalServerError'
-
-  /alerts/{alertId}:
+  /access/logs/{logId}:
     get:
-      operationId: getAlertById
-      summary: Lấy chi tiết một cảnh báo
-      description: Lấy chi tiết alert theo UUID.
-      tags: [alerts]
+      operationId: getAccessLogById
+      summary: Get one access log by id
+      description: Core Business uses this endpoint to inspect one specific access log.
+      tags: [access-logs]
       parameters:
-        - $ref: '#/components/parameters/AlertId'
+        - $ref: '#/components/parameters/LogId'
+        - $ref: '#/components/parameters/CorrelationId'
       responses:
         '200':
-          description: Chi tiết cảnh báo
+          description: Access log detail
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Alert'
+                $ref: '#/components/schemas/AccessLog'
+              examples:
+                allowed:
+                  value:
+                    logId: log-001
+                    cardId: card-001
+                    gateId: gate-main
+                    direction: IN
+                    timestamp: '2026-05-15T08:00:00Z'
+                    status: ALLOWED
+                    operatorNote: null
+                    event:
+                      eventType: CARD_SWIPE
+                      readerId: reader-main-in
+                      cardId: card-001
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/InternalServerError'
-
-  /events:
-    post:
-      operationId: createCampusEvent
-      summary: Gửi sự kiện nghiệp vụ vào hệ thống
-      description: |
-        Endpoint minh họa polymorphism. Event có thể là SensorEvent hoặc AccessEvent.
-      tags: [events]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CampusEvent'
-            examples:
-              sensorEvent:
-                value:
-                  eventType: SENSOR_READING
-                  eventId: 0196fb3d-4ad7-7d1e-9f49-5d5148d2babc
-                  deviceId: SENSOR-001
-                  metric: temperature
-                  value: 38.5
-                  unit: celsius
-                  timestamp: '2026-05-10T08:00:00Z'
-              accessEvent:
-                value:
-                  eventType: ACCESS_CHECK
-                  eventId: 0196fb3d-4ad7-7d1e-9f49-5d5148d2babd
-                  gateId: GATE-01
-                  cardId: RFID-2026-001
-                  decision: ALLOW
-                  timestamp: '2026-05-10T08:01:00Z'
+  /gates/{gateId}/status:
+    get:
+      operationId: getGateStatus
+      summary: Get current gate status
+      description: Core Business uses this endpoint to check whether a gate is online, offline, or under maintenance.
+      tags: [gates]
+      parameters:
+        - $ref: '#/components/parameters/GateId'
+        - $ref: '#/components/parameters/CorrelationId'
       responses:
-        '201':
-          description: Event đã được ghi nhận
+        '200':
+          description: Gate status
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/EventAccepted'
-        '400':
-          $ref: '#/components/responses/BadRequest'
+                $ref: '#/components/schemas/GateStatus'
+              examples:
+                online:
+                  value:
+                    gateId: gate-main
+                    status: ONLINE
+                    lastHeartbeatAt: '2026-05-15T08:00:00Z'
+                    maintenanceReason: null
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '422':
-          $ref: '#/components/responses/UnprocessableEntity'
-
-webhooks:
-  alertCreated:
-    post:
-      operationId: onAlertCreated
-      summary: Webhook khi có alert mới
-      description: Provider phát sự kiện khi một cảnh báo mới được tạo.
-      tags: [alerts]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/Alert'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /cards/{cardId}:
+    get:
+      operationId: getCardById
+      summary: Get card information
+      description: Core Business uses this endpoint to check the lifecycle state of a campus access card.
+      tags: [cards]
+      parameters:
+        - $ref: '#/components/parameters/CardId'
+        - $ref: '#/components/parameters/CorrelationId'
       responses:
         '200':
-          description: Consumer đã nhận webhook
-
+          description: Card information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Card'
+              examples:
+                active:
+                  value:
+                    cardId: card-001
+                    holderId: student-001
+                    status: ACTIVE
+                    expiresAt: '2026-12-31T23:59:59Z'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
-
   parameters:
-    AlertId:
-      name: alertId
+    LogId:
+      name: logId
       in: path
       required: true
-      description: UUID của cảnh báo.
+      description: Access log identifier.
       schema:
         type: string
-        format: uuid
-    Cursor:
-      name: cursor
-      in: query
-      required: false
-      description: Cursor dùng để lấy trang tiếp theo.
+        pattern: '^log-[0-9]{3,}$'
+      example: log-001
+    GateId:
+      name: gateId
+      in: path
+      required: true
+      description: Gate identifier.
       schema:
-        type: [string, 'null']
-        minLength: 1
-        maxLength: 200
+        type: string
+        pattern: '^gate-[a-z0-9-]+$'
+      example: gate-main
+    CardId:
+      name: cardId
+      in: path
+      required: true
+      description: Card identifier.
+      schema:
+        type: string
+        pattern: '^card-[0-9]{3,}$'
+      example: card-001
     Limit:
       name: limit
       in: query
       required: false
-      description: Số item tối đa mỗi trang.
+      description: Maximum number of logs returned.
       schema:
         type: integer
         minimum: 1
         maximum: 100
         default: 20
-
+    FromTime:
+      name: from
+      in: query
+      required: false
+      description: Start time for filtering logs.
+      schema:
+        type: string
+        format: date-time
+    ToTime:
+      name: to
+      in: query
+      required: false
+      description: End time for filtering logs.
+      schema:
+        type: string
+        format: date-time
+    CorrelationId:
+      name: X-Correlation-Id
+      in: header
+      required: false
+      description: Request correlation id for tracing.
+      schema:
+        type: string
+        minLength: 8
+        maxLength: 100
   schemas:
     HealthStatus:
       type: object
@@ -309,324 +265,251 @@ components:
         status:
           type: string
           enum: [ok]
-          description: Trạng thái service.
           example: ok
         service:
           type: string
           minLength: 2
           maxLength: 80
-          description: Tên service.
-          example: lab02-contract-template
+          example: access-gate
         time:
           type: string
           format: date-time
-          description: Thời điểm kiểm tra.
-          example: '2026-05-10T08:00:00Z'
-
-    CreateAlertRequest:
+          example: '2026-05-15T08:00:00Z'
+    AccessLogList:
       type: object
       additionalProperties: false
-      required: [sourceService, alertType, severity, message]
-      properties:
-        sourceService:
-          type: string
-          minLength: 2
-          maxLength: 80
-          pattern: '^[a-z0-9-]+$'
-          description: Service tạo alert.
-          example: core-business
-        alertType:
-          type: string
-          enum: [UNAUTHORIZED_ACCESS, SENSOR_THRESHOLD_EXCEEDED, UNKNOWN_PERSON, SYSTEM_ERROR]
-          description: Loại cảnh báo.
-          example: UNAUTHORIZED_ACCESS
-        severity:
-          $ref: '#/components/schemas/AlertSeverity'
-        message:
-          type: string
-          minLength: 5
-          maxLength: 500
-          description: Nội dung cảnh báo.
-          example: Phát hiện truy cập trái phép tại cổng chính
-        relatedEventId:
-          type: [string, 'null']
-          format: uuid
-          description: Event liên quan, có thể null nếu chưa có event id.
-          example: 0196fb3d-4ad7-7d1e-9f49-5d5148d2babc
-
-    Alert:
-      allOf:
-        - $ref: '#/components/schemas/CreateAlertRequest'
-        - type: object
-          additionalProperties: false
-          required: [id, status, createdAt, resolvedAt]
-          properties:
-            id:
-              type: string
-              format: uuid
-              description: UUID của alert.
-              example: 0196fb3d-4ad7-7d1e-9f49-5d5148d2babc
-            status:
-              type: string
-              enum: [OPEN, ACKNOWLEDGED, RESOLVED]
-              description: Trạng thái xử lý alert.
-              example: OPEN
-            createdAt:
-              type: string
-              format: date-time
-              description: Thời điểm tạo alert.
-              example: '2026-05-10T08:00:00Z'
-            resolvedAt:
-              type: [string, 'null']
-              format: date-time
-              description: Thời điểm xử lý xong, null nếu chưa xử lý.
-              example: null
-
-    AlertSeverity:
-      type: string
-      enum: [LOW, MEDIUM, HIGH, CRITICAL]
-      description: Mức độ nghiêm trọng của cảnh báo.
-      example: HIGH
-
-    AlertPage:
-      type: object
-      additionalProperties: false
-      required: [items, nextCursor, hasMore]
+      required: [items, nextCursor]
       properties:
         items:
           type: array
           minItems: 0
           maxItems: 100
           items:
-            $ref: '#/components/schemas/Alert'
+            $ref: '#/components/schemas/AccessLog'
         nextCursor:
           type: [string, 'null']
-          description: Cursor trang tiếp theo, null nếu hết dữ liệu.
+          minLength: 1
+          maxLength: 200
           example: null
-        hasMore:
-          type: boolean
-          description: Còn dữ liệu ở trang sau hay không.
-          example: false
-
-    CampusEvent:
+    AccessLog:
+      type: object
+      additionalProperties: false
+      required: [logId, cardId, gateId, direction, timestamp, status, operatorNote, event]
+      properties:
+        logId:
+          type: string
+          pattern: '^log-[0-9]{3,}$'
+          example: log-001
+        cardId:
+          type: string
+          pattern: '^card-[0-9]{3,}$'
+          example: card-001
+        gateId:
+          type: string
+          pattern: '^gate-[a-z0-9-]+$'
+          example: gate-main
+        direction:
+          type: string
+          enum: [IN, OUT]
+          example: IN
+        timestamp:
+          type: string
+          format: date-time
+          example: '2026-05-15T08:00:00Z'
+        status:
+          type: string
+          enum: [ALLOWED, DENIED, ERROR]
+          example: ALLOWED
+        operatorNote:
+          type: [string, 'null']
+          maxLength: 300
+          example: null
+        event:
+          $ref: '#/components/schemas/AccessEvent'
+    GateStatus:
+      type: object
+      additionalProperties: false
+      required: [gateId, status, lastHeartbeatAt, maintenanceReason]
+      properties:
+        gateId:
+          type: string
+          pattern: '^gate-[a-z0-9-]+$'
+          example: gate-main
+        status:
+          type: string
+          enum: [ONLINE, OFFLINE, MAINTENANCE]
+          example: ONLINE
+        lastHeartbeatAt:
+          type: string
+          format: date-time
+          example: '2026-05-15T08:00:00Z'
+        maintenanceReason:
+          type: [string, 'null']
+          maxLength: 300
+          example: null
+    Card:
+      type: object
+      additionalProperties: false
+      required: [cardId, holderId, status, expiresAt]
+      properties:
+        cardId:
+          type: string
+          pattern: '^card-[0-9]{3,}$'
+          example: card-001
+        holderId:
+          type: string
+          minLength: 3
+          maxLength: 80
+          example: student-001
+        status:
+          type: string
+          enum: [ACTIVE, BLOCKED, EXPIRED]
+          example: ACTIVE
+        expiresAt:
+          type: string
+          format: date-time
+          example: '2026-12-31T23:59:59Z'
+    AccessEvent:
       oneOf:
-        - $ref: '#/components/schemas/SensorEvent'
-        - $ref: '#/components/schemas/AccessEvent'
+        - $ref: '#/components/schemas/CardSwipeEvent'
+        - $ref: '#/components/schemas/ManualOverrideEvent'
       discriminator:
         propertyName: eventType
         mapping:
-          SENSOR_READING: '#/components/schemas/SensorEvent'
-          ACCESS_CHECK: '#/components/schemas/AccessEvent'
-
-    SensorEvent:
+          CARD_SWIPE: '#/components/schemas/CardSwipeEvent'
+          MANUAL_OVERRIDE: '#/components/schemas/ManualOverrideEvent'
+    CardSwipeEvent:
       type: object
       additionalProperties: false
-      required: [eventType, eventId, deviceId, metric, value, unit, timestamp]
+      required: [eventType, readerId, cardId]
       properties:
         eventType:
           type: string
-          const: SENSOR_READING
-          description: Loại event.
-          example: SENSOR_READING
-        eventId:
+          const: CARD_SWIPE
+          example: CARD_SWIPE
+        readerId:
           type: string
-          format: uuid
-          description: UUID của event.
-        deviceId:
-          type: string
-          pattern: '^SENSOR-[0-9]{3}$'
-          description: Mã thiết bị cảm biến.
-          example: SENSOR-001
-        metric:
-          type: string
-          enum: [temperature, humidity, smoke, motion]
-          description: Loại chỉ số cảm biến.
-          example: temperature
-        value:
-          type: number
-          minimum: -100
-          maximum: 1000
-          description: Giá trị đo được.
-          example: 38.5
-        unit:
-          type: string
-          minLength: 1
-          maxLength: 20
-          description: Đơn vị đo.
-          example: celsius
-        timestamp:
-          type: string
-          format: date-time
-          description: Thời điểm đo.
-
-    AccessEvent:
-      type: object
-      additionalProperties: false
-      required: [eventType, eventId, gateId, cardId, decision, timestamp]
-      properties:
-        eventType:
-          type: string
-          const: ACCESS_CHECK
-          description: Loại event.
-          example: ACCESS_CHECK
-        eventId:
-          type: string
-          format: uuid
-          description: UUID của event.
-        gateId:
-          type: string
-          pattern: '^GATE-[0-9]{2}$'
-          description: Mã cổng.
-          example: GATE-01
+          minLength: 3
+          maxLength: 80
+          example: reader-main-in
         cardId:
           type: string
-          pattern: '^RFID-[0-9]{4}-[0-9]{3}$'
-          description: Mã thẻ RFID.
-          example: RFID-2026-001
-        decision:
-          type: string
-          enum: [ALLOW, DENY]
-          description: Quyết định truy cập.
-          example: ALLOW
-        timestamp:
-          type: string
-          format: date-time
-          description: Thời điểm kiểm tra.
-
-    EventAccepted:
+          pattern: '^card-[0-9]{3,}$'
+          example: card-001
+    ManualOverrideEvent:
       type: object
       additionalProperties: false
-      required: [eventId, acceptedAt]
+      required: [eventType, operatorId, reason]
       properties:
-        eventId:
+        eventType:
           type: string
-          format: uuid
-          description: UUID của event được nhận.
-        acceptedAt:
+          const: MANUAL_OVERRIDE
+          example: MANUAL_OVERRIDE
+        operatorId:
           type: string
-          format: date-time
-          description: Thời điểm hệ thống ghi nhận event.
-
+          minLength: 3
+          maxLength: 80
+          example: guard-001
+        reason:
+          type: string
+          minLength: 5
+          maxLength: 300
+          example: Visitor verified manually by security staff.
     Problem:
       type: object
       additionalProperties: false
-      required: [type, title, status]
+      required: [type, title, status, detail, instance, correlationId]
       properties:
         type:
           type: string
           format: uri
-          description: URI định danh loại lỗi.
-          example: https://campus.local/errors/validation
+          example: https://campus.local/errors/not-found
         title:
           type: string
           minLength: 3
           maxLength: 120
-          description: Tiêu đề lỗi ngắn gọn.
-          example: Dữ liệu không hợp lệ
+          example: Resource not found
         status:
           type: integer
           minimum: 400
           maximum: 599
-          description: HTTP status code.
-          example: 400
+          example: 404
         detail:
           type: [string, 'null']
           maxLength: 500
-          description: Mô tả chi tiết lỗi.
-          example: Field cardId không đúng định dạng
+          example: Access log log-999 was not found.
         instance:
           type: [string, 'null']
-          format: uri
-          description: URI của request gây lỗi.
-          example: /alerts
-        errors:
-          type: array
-          minItems: 0
-          maxItems: 50
-          items:
-            type: object
-            additionalProperties: false
-            required: [field, code, message]
-            properties:
-              field:
-                type: string
-                minLength: 1
-                maxLength: 80
-                example: cardId
-              code:
-                type: string
-                minLength: 2
-                maxLength: 80
-                example: PATTERN_MISMATCH
-              message:
-                type: string
-                minLength: 3
-                maxLength: 200
-                example: cardId phải có dạng RFID-YYYY-NNN
-
+          format: uri-reference
+          example: /access/logs/log-999
+        correlationId:
+          type: string
+          minLength: 8
+          maxLength: 100
+          example: corr-20260515-0001
   responses:
     BadRequest:
-      description: Dữ liệu sai định dạng
+      description: Request parameters are invalid
       content:
         application/problem+json:
           schema:
             $ref: '#/components/schemas/Problem'
           example:
             type: https://campus.local/errors/validation
-            title: Dữ liệu không hợp lệ
+            title: Invalid request
             status: 400
-            detail: Payload không đúng JSON Schema
-            instance: /alerts
-            errors:
-              - field: alertType
-                code: ENUM_MISMATCH
-                message: alertType không nằm trong danh sách cho phép
-
+            detail: limit must be between 1 and 100.
+            instance: /access/logs/recent
+            correlationId: corr-20260515-0001
     Unauthorized:
-      description: Thiếu hoặc sai thông tin xác thực
+      description: Missing or invalid bearer token
       content:
         application/problem+json:
           schema:
             $ref: '#/components/schemas/Problem'
           example:
             type: https://campus.local/errors/unauthorized
-            title: Chưa xác thực
+            title: Unauthorized
             status: 401
-            detail: Thiếu Bearer token
-            instance: /alerts/recent
-            errors: []
-
+            detail: Bearer token is required.
+            instance: /access/logs/recent
+            correlationId: corr-20260515-0002
     Forbidden:
-      description: Không có quyền thực hiện thao tác
+      description: Caller does not have permission for this resource
       content:
         application/problem+json:
           schema:
             $ref: '#/components/schemas/Problem'
-
+          example:
+            type: https://campus.local/errors/forbidden
+            title: Forbidden
+            status: 403
+            detail: Caller is not allowed to query this gate.
+            instance: /gates/gate-main/status
+            correlationId: corr-20260515-0003
     NotFound:
-      description: Resource không tồn tại
+      description: Requested resource does not exist
       content:
         application/problem+json:
           schema:
             $ref: '#/components/schemas/Problem'
-
-    Conflict:
-      description: Xung đột nghiệp vụ hoặc trùng idempotency key
-      content:
-        application/problem+json:
-          schema:
-            $ref: '#/components/schemas/Problem'
-
-    UnprocessableEntity:
-      description: Payload đúng định dạng nhưng không hợp lệ về nghiệp vụ
-      content:
-        application/problem+json:
-          schema:
-            $ref: '#/components/schemas/Problem'
-
+          example:
+            type: https://campus.local/errors/not-found
+            title: Resource not found
+            status: 404
+            detail: The requested resource was not found.
+            instance: /access/logs/log-999
+            correlationId: corr-20260515-0004
     InternalServerError:
-      description: Lỗi không mong muốn phía server
+      description: Unexpected Access Gate service error
       content:
         application/problem+json:
           schema:
             $ref: '#/components/schemas/Problem'
+          example:
+            type: https://campus.local/errors/internal
+            title: Internal server error
+            status: 500
+            detail: Access Gate cannot read from the local log store.
+            instance: /access/logs/recent
+            correlationId: corr-20260515-0005
