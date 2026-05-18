@@ -97,7 +97,7 @@
 
 Provider sign-off: Access Gate team  
 Consumer sign-off: Core Business team  
-Witness (GV/TA):  
+Witness (GV/TA): Lê Trang  
 Date: 2026-05-15
 
 ---

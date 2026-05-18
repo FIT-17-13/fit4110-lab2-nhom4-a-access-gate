@@ -1,0 +1,5 @@
+node v24.13.0
+npm 11.6.2
+git version 2.52.0.windows.1
+spectral 6.11.1
+prism 5.14.2
