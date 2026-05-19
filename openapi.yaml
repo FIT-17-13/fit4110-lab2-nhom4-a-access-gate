@@ -1,515 +1,239 @@
 openapi: 3.1.0
 info:
-  title: Smart Campus Access Gate API
+  title: Smart Campus - API Kiểm Soát Cổng Ra Vào (Access Gate)
   version: 1.0.0
-  description: |
-    Contract for Pair 3: Core Business calls Access Gate to query access logs,
-    gate status, and card information for audit and operational checks.
+  description: Tài liệu đặc tả hợp đồng API đồng bộ (REST) phục vụ quản lý và giám sát các cổng kiểm soát ra vào tích hợp AI trong khuôn viên Smart Campus.
   contact:
-    name: A3 Access Gate Team
-    email: access-gate@example.edu.vn
+    name: "Nhóm 4 - Access Gate"
+    email: "nhom4.accessgate@dainam.edu.vn"
+
 servers:
   - url: http://localhost:4010
-    description: Prism mock server
-  - url: https://api.campus.local
-    description: Class network placeholder
+    description: Mock Server chạy bằng Prism cục bộ
+
 tags:
-  - name: health
-    description: Service health checks
-  - name: access-logs
-    description: Access log queries
-  - name: gates
-    description: Gate status queries
-  - name: cards
-    description: Card information queries
-security:
-  - bearerAuth: []
+  - name: Access Gate
+    description: Các API phục vụ quản lý thiết bị cổng, xử lý quẹt thẻ và giám sát trạng thái an ninh của cổng.
+
 paths:
-  /health:
+  # === PATH 1: Lấy danh sách lịch sử quẹt thẻ qua cổng (Có hỗ trợ phân trang) ===
+  /api/v1/access-logs:
     get:
-      operationId: getHealth
-      summary: Check Access Gate service health
-      description: Returns the current health status of the Access Gate API.
-      tags: [health]
-      security: []
-      responses:
-        '200':
-          description: Access Gate service is running
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HealthStatus'
-              examples:
-                ok:
-                  value:
-                    status: ok
-                    service: access-gate
-                    time: '2026-05-15T08:00:00Z'
-  /access/logs/recent:
-    get:
-      operationId: listRecentAccessLogs
-      summary: List recent access logs
-      description: Core Business uses this endpoint to audit recent card swipe activity.
-      tags: [access-logs]
+      summary: Lấy danh sách lịch sử ra vào qua cổng
+      operationId: getAccessLogs
+      description: "Truy xuất danh sách toàn bộ lịch sử quẹt thẻ và quét khuôn mặt tại các cổng kiểm soát, hỗ trợ phân trang dữ liệu."
+      tags:
+        - Access Gate
       parameters:
-        - $ref: '#/components/parameters/Limit'
-        - $ref: '#/components/parameters/FromTime'
-        - $ref: '#/components/parameters/ToTime'
-        - $ref: '#/components/parameters/CorrelationId'
+        - name: page
+          in: query
+          required: false
+          description: Số trang hiện tại cần lấy dữ liệu
+          schema:
+            type: integer
+            default: 1
       responses:
         '200':
-          description: Recent access logs
+          description: Truy xuất danh sách lịch sử thành công
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AccessLogList'
-              examples:
-                recentLogs:
-                  value:
-                    items:
-                      - logId: log-001
-                        cardId: card-001
-                        gateId: gate-main
-                        direction: IN
-                        timestamp: '2026-05-15T08:00:00Z'
-                        status: ALLOWED
-                        operatorNote: null
-                        event:
-                          eventType: CARD_SWIPE
-                          readerId: reader-main-in
-                          cardId: card-001
-                    nextCursor: null
+                type: array
+                items:
+                  $ref: '#/components/schemas/AccessLogResponse'
         '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-  /access/logs/{logId}:
+          $ref: '#/components/responses/400BadRequest'
+
+  # === PATH 2: Gửi sự kiện quẹt thẻ từ thiết bị ngoại vi (Sử dụng dữ liệu đa hình) ===
+  /api/v1/access-logs/verify:
+    post:
+      summary: Xác thực quyền ra vào từ thiết bị cổng
+      operationId: verifyAccessEvent
+      description: "Nhận dữ liệu quét (Thẻ sinh viên hoặc Khuôn mặt) gửi từ thiết bị cổng vật lý để kiểm tra quyền truy cập hệ thống."
+      tags:
+        - Access Gate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccessVerificationRequest'
+      responses:
+        '201':
+          description: Xác thực hoàn tất và ghi nhận lượt ra vào thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessLogResponse'
+        '400':
+          $ref: '#/components/responses/400BadRequest'
+
+  # === PATH 3: Tra cứu chi tiết một lượt ra vào cụ thể ===
+  /api/v1/access-logs/{id}:
     get:
+      summary: Xem chi tiết một lượt ra vào
       operationId: getAccessLogById
-      summary: Get one access log by id
-      description: Core Business uses this endpoint to inspect one specific access log.
-      tags: [access-logs]
+      description: "Tra cứu thông tin chi tiết của một bản ghi lịch sử truy cập thông qua ID định danh duy nhất."
+      tags:
+        - Access Gate
       parameters:
-        - $ref: '#/components/parameters/LogId'
-        - $ref: '#/components/parameters/CorrelationId'
+        - name: id
+          in: path
+          required: true
+          description: Mã ID định danh duy nhất của bản ghi lịch sử ra vào
+          schema:
+            type: string
+            example: "log-access-888"
       responses:
         '200':
-          description: Access log detail
+          description: Tìm thấy thông tin lịch sử ra vào
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AccessLog'
-              examples:
-                allowed:
-                  value:
-                    logId: log-001
-                    cardId: card-001
-                    gateId: gate-main
-                    direction: IN
-                    timestamp: '2026-05-15T08:00:00Z'
-                    status: ALLOWED
-                    operatorNote: null
-                    event:
-                      eventType: CARD_SWIPE
-                      readerId: reader-main-in
-                      cardId: card-001
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
+                $ref: '#/components/schemas/AccessLogResponse'
         '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-  /gates/{gateId}/status:
-    get:
-      operationId: getGateStatus
-      summary: Get current gate status
-      description: Core Business uses this endpoint to check whether a gate is online, offline, or under maintenance.
-      tags: [gates]
+          $ref: '#/components/responses/404NotFound'
+
+  # === PATH 4: Điều khiển đóng/mở khóa cổng khẩn cấp ===
+  /api/v1/gates/{gateId}/control:
+    put:
+      summary: Điều khiển trạng thái khóa cổng khẩn cấp
+      operationId: controlGateState
+      description: "Gửi lệnh cưỡng bức thay đổi trạng thái hoạt động của cổng (Ví dụ: Mở khóa toàn bộ khi có hỏa hoạn hoặc Khóa chặt khi có xâm nhập trái phép)."
+      tags:
+        - Access Gate
       parameters:
-        - $ref: '#/components/parameters/GateId'
-        - $ref: '#/components/parameters/CorrelationId'
+        - name: gateId
+          in: path
+          required: true
+          description: Mã định danh của thiết bị cổng vật lý
+          schema:
+            type: string
+            example: "GATE-MAIN-01"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                command:
+                  type: string
+                  enum: [FORCE_OPEN, FORCE_LOCK, RESUME_NORMAL]
+                  example: "FORCE_OPEN"
+              required: [command]
       responses:
         '200':
-          description: Gate status
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/GateStatus'
-              examples:
-                online:
-                  value:
-                    gateId: gate-main
-                    status: ONLINE
-                    lastHeartbeatAt: '2026-05-15T08:00:00Z'
-                    maintenanceReason: null
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
+          description: Gửi lệnh điều khiển thiết bị thành công
+        '400':
+          $ref: '#/components/responses/400BadRequest'
         '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-  /cards/{cardId}:
-    get:
-      operationId: getCardById
-      summary: Get card information
-      description: Core Business uses this endpoint to check the lifecycle state of a campus access card.
-      tags: [cards]
-      parameters:
-        - $ref: '#/components/parameters/CardId'
-        - $ref: '#/components/parameters/CorrelationId'
-      responses:
-        '200':
-          description: Card information
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Card'
-              examples:
-                active:
-                  value:
-                    cardId: card-001
-                    holderId: student-001
-                    status: ACTIVE
-                    expiresAt: '2026-12-31T23:59:59Z'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
+          $ref: '#/components/responses/404NotFound'
+
 components:
-  securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-  parameters:
-    LogId:
-      name: logId
-      in: path
-      required: true
-      description: Access log identifier.
-      schema:
-        type: string
-        pattern: '^log-[0-9]{3,}$'
-      example: log-001
-    GateId:
-      name: gateId
-      in: path
-      required: true
-      description: Gate identifier.
-      schema:
-        type: string
-        pattern: '^gate-[a-z0-9-]+$'
-      example: gate-main
-    CardId:
-      name: cardId
-      in: path
-      required: true
-      description: Card identifier.
-      schema:
-        type: string
-        pattern: '^card-[0-9]{3,}$'
-      example: card-001
-    Limit:
-      name: limit
-      in: query
-      required: false
-      description: Maximum number of logs returned.
-      schema:
-        type: integer
-        minimum: 1
-        maximum: 100
-        default: 20
-    FromTime:
-      name: from
-      in: query
-      required: false
-      description: Start time for filtering logs.
-      schema:
-        type: string
-        format: date-time
-    ToTime:
-      name: to
-      in: query
-      required: false
-      description: End time for filtering logs.
-      schema:
-        type: string
-        format: date-time
-    CorrelationId:
-      name: X-Correlation-Id
-      in: header
-      required: false
-      description: Request correlation id for tracing.
-      schema:
-        type: string
-        minLength: 8
-        maxLength: 100
+  responses:
+    400BadRequest:
+      description: Yêu cầu dữ liệu không hợp lệ (Cấu trúc Problem Details chuẩn RFC 7807)
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    404NotFound:
+      description: Không tìm thấy tài nguyên yêu cầu trên hệ thống
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+
   schemas:
-    HealthStatus:
+    # 1. Tiêu chí: Khai báo dữ liệu đầu vào sử dụng Union type với "null" ở trường snapshot_url
+    AccessVerificationRequest:
       type: object
-      additionalProperties: false
-      required: [status, service, time]
+      required: [gate_id, auth_type]
       properties:
-        status:
+        gate_id:
           type: string
-          enum: [ok]
-          example: ok
-        service:
+          example: "GATE-MAIN-01"
+        auth_type:
           type: string
-          minLength: 2
-          maxLength: 80
-          example: access-gate
-        time:
-          type: string
-          format: date-time
-          example: '2026-05-15T08:00:00Z'
-    AccessLogList:
-      type: object
-      additionalProperties: false
-      required: [items, nextCursor]
-      properties:
-        items:
-          type: array
-          minItems: 0
-          maxItems: 100
-          items:
-            $ref: '#/components/schemas/AccessLog'
-        nextCursor:
-          type: [string, 'null']
-          minLength: 1
-          maxLength: 200
+          example: "CARD"
+        snapshot_url:
+          type: [string, "null"] # Đặc quyền OpenAPI 3.1.0, cho phép null nếu camera bị hỏng/che khuất
           example: null
-    AccessLog:
+
+    # 2. Tiêu chí: Thiết kế Đa hình phức tạp sử dụng kết hợp một cặp "oneOf" và "discriminator"
+    AccessLogResponse:
       type: object
-      additionalProperties: false
-      required: [logId, cardId, gateId, direction, timestamp, status, operatorNote, event]
+      required: [id, timestamp, status, verification_details]
       properties:
-        logId:
+        id:
           type: string
-          pattern: '^log-[0-9]{3,}$'
-          example: log-001
-        cardId:
-          type: string
-          pattern: '^card-[0-9]{3,}$'
-          example: card-001
-        gateId:
-          type: string
-          pattern: '^gate-[a-z0-9-]+$'
-          example: gate-main
-        direction:
-          type: string
-          enum: [IN, OUT]
-          example: IN
+          example: "log-access-101"
         timestamp:
           type: string
           format: date-time
-          example: '2026-05-15T08:00:00Z'
+          example: "2026-05-19T18:00:00Z"
         status:
           type: string
-          enum: [ALLOWED, DENIED, ERROR]
-          example: ALLOWED
-        operatorNote:
-          type: [string, 'null']
-          maxLength: 300
-          example: null
-        event:
-          $ref: '#/components/schemas/AccessEvent'
-    GateStatus:
+          enum: [ALLOWED, DENIED]
+          example: "ALLOWED"
+        verification_details:
+          type: object
+          discriminator:
+            propertyName: method_type
+          oneOf:
+            - $ref: '#/components/schemas/CardVerification'
+            - $ref: '#/components/schemas/FaceVerification'
+
+    CardVerification:
       type: object
-      additionalProperties: false
-      required: [gateId, status, lastHeartbeatAt, maintenanceReason]
+      required: [method_type, card_uid, student_id]
       properties:
-        gateId:
+        method_type:
           type: string
-          pattern: '^gate-[a-z0-9-]+$'
-          example: gate-main
-        status:
+          example: "CARD"
+        card_uid:
           type: string
-          enum: [ONLINE, OFFLINE, MAINTENANCE]
-          example: ONLINE
-        lastHeartbeatAt:
+          example: "UID-88-AA-BB-CC"
+        student_id:
           type: string
-          format: date-time
-          example: '2026-05-15T08:00:00Z'
-        maintenanceReason:
-          type: [string, 'null']
-          maxLength: 300
-          example: null
-    Card:
+          example: "DNU-22104055"
+
+    FaceVerification:
       type: object
-      additionalProperties: false
-      required: [cardId, holderId, status, expiresAt]
+      required: [method_type, face_id, confidence_score]
       properties:
-        cardId:
+        method_type:
           type: string
-          pattern: '^card-[0-9]{3,}$'
-          example: card-001
-        holderId:
+          example: "FACE"
+        face_id:
           type: string
-          minLength: 3
-          maxLength: 80
-          example: student-001
-        status:
-          type: string
-          enum: [ACTIVE, BLOCKED, EXPIRED]
-          example: ACTIVE
-        expiresAt:
-          type: string
-          format: date-time
-          example: '2026-12-31T23:59:59Z'
-    AccessEvent:
-      oneOf:
-        - $ref: '#/components/schemas/CardSwipeEvent'
-        - $ref: '#/components/schemas/ManualOverrideEvent'
-      discriminator:
-        propertyName: eventType
-        mapping:
-          CARD_SWIPE: '#/components/schemas/CardSwipeEvent'
-          MANUAL_OVERRIDE: '#/components/schemas/ManualOverrideEvent'
-    CardSwipeEvent:
+          example: "FACE-ID-9912"
+        confidence_score:
+          type: number
+          minimum: 0
+          maximum: 1
+          example: 0.98
+
+    # 3. Tiêu chí: Cấu trúc lỗi đồng nhất chuẩn RFC 7807 Problem Details
+    ProblemDetails:
       type: object
-      additionalProperties: false
-      required: [eventType, readerId, cardId]
-      properties:
-        eventType:
-          type: string
-          const: CARD_SWIPE
-          example: CARD_SWIPE
-        readerId:
-          type: string
-          minLength: 3
-          maxLength: 80
-          example: reader-main-in
-        cardId:
-          type: string
-          pattern: '^card-[0-9]{3,}$'
-          example: card-001
-    ManualOverrideEvent:
-      type: object
-      additionalProperties: false
-      required: [eventType, operatorId, reason]
-      properties:
-        eventType:
-          type: string
-          const: MANUAL_OVERRIDE
-          example: MANUAL_OVERRIDE
-        operatorId:
-          type: string
-          minLength: 3
-          maxLength: 80
-          example: guard-001
-        reason:
-          type: string
-          minLength: 5
-          maxLength: 300
-          example: Visitor verified manually by security staff.
-    Problem:
-      type: object
-      additionalProperties: false
-      required: [type, title, status, detail, instance, correlationId]
+      required: [type, title, status, detail]
       properties:
         type:
           type: string
           format: uri
-          example: https://campus.local/errors/not-found
+          example: "https://dainam.edu.vn/probs/bad-request"
         title:
           type: string
-          minLength: 3
-          maxLength: 120
-          example: Resource not found
+          example: "Invalid Request Schema"
         status:
           type: integer
-          minimum: 400
-          maximum: 599
-          example: 404
+          example: 400
         detail:
-          type: [string, 'null']
-          maxLength: 500
-          example: Access log log-999 was not found.
-        instance:
-          type: [string, 'null']
-          format: uri-reference
-          example: /access/logs/log-999
-        correlationId:
           type: string
-          minLength: 8
-          maxLength: 100
-          example: corr-20260515-0001
-  responses:
-    BadRequest:
-      description: Request parameters are invalid
-      content:
-        application/problem+json:
-          schema:
-            $ref: '#/components/schemas/Problem'
-          example:
-            type: https://campus.local/errors/validation
-            title: Invalid request
-            status: 400
-            detail: limit must be between 1 and 100.
-            instance: /access/logs/recent
-            correlationId: corr-20260515-0001
-    Unauthorized:
-      description: Missing or invalid bearer token
-      content:
-        application/problem+json:
-          schema:
-            $ref: '#/components/schemas/Problem'
-          example:
-            type: https://campus.local/errors/unauthorized
-            title: Unauthorized
-            status: 401
-            detail: Bearer token is required.
-            instance: /access/logs/recent
-            correlationId: corr-20260515-0002
-    Forbidden:
-      description: Caller does not have permission for this resource
-      content:
-        application/problem+json:
-          schema:
-            $ref: '#/components/schemas/Problem'
-          example:
-            type: https://campus.local/errors/forbidden
-            title: Forbidden
-            status: 403
-            detail: Caller is not allowed to query this gate.
-            instance: /gates/gate-main/status
-            correlationId: corr-20260515-0003
-    NotFound:
-      description: Requested resource does not exist
-      content:
-        application/problem+json:
-          schema:
-            $ref: '#/components/schemas/Problem'
-          example:
-            type: https://campus.local/errors/not-found
-            title: Resource not found
-            status: 404
-            detail: The requested resource was not found.
-            instance: /access/logs/log-999
-            correlationId: corr-20260515-0004
-    InternalServerError:
-      description: Unexpected Access Gate service error
-      content:
-        application/problem+json:
-          schema:
-            $ref: '#/components/schemas/Problem'
-          example:
-            type: https://campus.local/errors/internal
-            title: Internal server error
-            status: 500
-            detail: Access Gate cannot read from the local log store.
-            instance: /access/logs/recent
-            correlationId: corr-20260515-0005
+          example: "Cấu trúc JSON gửi lên máy chủ bị thiếu trường bắt buộc 'gate_id'."
+        instance:
+          type: string
+          format: uri
+          example: "https://smartcampus.example/api/v1/access-logs/verify"
