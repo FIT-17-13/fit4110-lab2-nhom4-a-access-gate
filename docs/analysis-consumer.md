@@ -1,67 +1,56 @@
-# Consumer Analysis - Pair 3 Core Business -> Access Gate
+# Consumer Analysis - Core Business (Smart Campus)
 
-- Negotiation pair: Pair 3 - Core Business -> Access Gate
-- Product: A3
-- Consumer service: Core Business
-- Provider service: Access Gate
-- Author: A3 Access Gate team
-- Date: 2026-05-15
+- Pair: Core Business -> Access Gate
+- Role: Consumer
+- Version: v1.0
+- Date: 2026-05-19
 
----
+## Business Analysis
+Core Business consumes Access Gate APIs to support security audit, incident review, and operational visibility across campus gates.  
+Consumer decisions depend on accurate log history, current gate state, and card lifecycle status.
 
-## 1. Resources Needed By Consumer
+## Functional Requirements
+1. Call `GET /access/logs/recent` to fetch recent access activity for audit workflows.
+2. Call `GET /access/logs/{logId}` to inspect a specific incident record.
+3. Call `GET /gates/{gateId}/status` to check gate operability before actions.
+4. Call `GET /cards/{cardId}` to determine card validity for business rules.
+5. Parse both event variants (`CARD_SWIPE`, `MANUAL_OVERRIDE`) correctly.
+6. Display nullable optional fields safely (`operatorNote`, `maintenanceReason`, `nextCursor`).
 
-| Resource | How Consumer uses it | Required fields for Consumer | Optional fields |
-|---|---|---|---|
-| AccessLog | Audit campus entry/exit activity | logId, cardId, gateId, direction, timestamp, status | operatorNote |
-| GateStatus | Check whether a gate can be trusted for operations | gateId, status, lastHeartbeatAt | maintenanceReason |
-| Card | Check whether a card is active, blocked, or expired | cardId, holderId, status, expiresAt | none |
+## Non-Functional Requirements
+1. Reliable integration with schema-driven parsing (OpenAPI-first).
+2. Fast operator experience through paged retrieval (bounded `limit`).
+3. Traceability in logs using propagated `X-Correlation-Id`.
+4. Resilience with retry/backoff only for retryable failures (`500`/timeout).
+5. Compatibility with contract enums and field naming across releases.
 
----
+## API Expectations
+1. Send bearer token for all protected endpoints.
+2. Send optional `X-Correlation-Id` per request for end-to-end tracing.
+3. Use query filters (`from`, `to`, `limit`) for controlled access-log queries.
+4. Expect success payloads from shared schemas (`AccessLogList`, `AccessLog`, `GateStatus`, `Card`).
+5. Expect Problem Details for all handled error statuses.
 
-## 2. APIs Consumer Needs To Call
+## Security Concerns
+1. Store and rotate service tokens securely; never log raw tokens.
+2. Enforce least-privilege access for service account scopes.
+3. Restrict exposure of sensitive access-log data in UI/export.
+4. Sanitize user-visible error details to avoid information leakage.
 
-| Method | Path | When is it called? | Expected response |
-|---|---|---|---|
-| GET | `/access/logs/recent` | Core Business needs recent audit data | AccessLogList |
-| GET | `/access/logs/{logId}` | Core Business reviews one event | AccessLog |
-| GET | `/gates/{gateId}/status` | Core Business checks gate availability | GateStatus |
-| GET | `/cards/{cardId}` | Core Business checks card state | Card |
+## Error Handling
+Consumer behavior by status:
+- `400`: correct request data before retry.
+- `401`: refresh/fix token configuration.
+- `403`: stop retry and escalate as permission issue.
+- `404`: show resource-not-found state and continue workflow.
+- `500`: retry with backoff and include correlation id in incident log.
 
----
+Consumer must always parse Problem Details fields: `type`, `title`, `status`, `detail`, `instance`, `correlationId`.
 
-## 3. Error Cases Consumer Must Handle
-
-| Status | Consumer meaning | Consumer handling |
-|---:|---|---|
-| 400 | Request parameter is invalid | Fix query/path value and log validation error |
-| 401 | Token is missing or invalid | Refresh or configure service token |
-| 403 | Core Business is not allowed to access this resource | Show authorization failure and stop retrying |
-| 404 | Requested log, gate, or card does not exist | Show not found state for audit/operator flow |
-| 500 | Access Gate has an internal issue | Retry with backoff and keep correlationId for support |
-
----
-
-## 4. Additional Assumptions
-
-- Core Business will send a Bearer token for all endpoints except `/health`.
-- Core Business can pass `X-Correlation-Id` for tracing.
-- Core Business accepts `operatorNote` and `maintenanceReason` as nullable fields.
-
----
-
-## 5. Questions For Provider
-
-1. How long are access logs retained?
-2. What is the maximum safe value for `limit` on recent logs?
-3. Does Access Gate return manual override activity in the same log list as card swipe activity?
-
----
-
-## 6. Integration Risks
-
-| Risk | Impact | Mitigation |
-|---|---|---|
-| Provider changes field names | Core Business parsing breaks | Field names are locked in OpenAPI contract |
-| Provider omits specific error detail | Operators cannot diagnose failures | All errors use ProblemDetails |
-| Provider returns a new enum value without negotiation | Consumer may treat data as unknown | Breaking enum changes require version negotiation |
+## Data Validation
+1. Validate local input formats for `logId`, `gateId`, `cardId` before API call.
+2. Validate `from <= to` and valid ISO date-time values.
+3. Keep `limit` within provider contract range `[1,100]`.
+4. Validate enums strictly and handle unknown values as integration alerts.
+5. Branch event parsing by discriminator `eventType`.
+6. Treat contract-defined nullable fields as optional at rendering and business-rule layers.

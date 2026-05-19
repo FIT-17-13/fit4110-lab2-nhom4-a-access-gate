@@ -117,6 +117,19 @@ paths:
                       eventType: CARD_SWIPE
                       readerId: reader-main-in
                       cardId: card-001
+                manualOverride:
+                  value:
+                    logId: log-045
+                    cardId: card-020
+                    gateId: gate-lab-a
+                    direction: IN
+                    timestamp: '2026-05-15T10:42:00Z'
+                    status: DENIED
+                    operatorNote: Visitor used temporary ID check.
+                    event:
+                      eventType: MANUAL_OVERRIDE
+                      operatorId: guard-001
+                      reason: Card chip failed and identity was verified manually.
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -231,6 +244,7 @@ components:
         minimum: 1
         maximum: 100
         default: 20
+      example: 20
     FromTime:
       name: from
       in: query
@@ -239,6 +253,7 @@ components:
       schema:
         type: string
         format: date-time
+      example: '2026-05-15T00:00:00Z'
     ToTime:
       name: to
       in: query
@@ -247,6 +262,7 @@ components:
       schema:
         type: string
         format: date-time
+      example: '2026-05-15T23:59:59Z'
     CorrelationId:
       name: X-Correlation-Id
       in: header
@@ -256,6 +272,7 @@ components:
         type: string
         minLength: 8
         maxLength: 100
+      example: corr-20260515-0001
   schemas:
     HealthStatus:
       type: object
