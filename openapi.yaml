@@ -32,6 +32,7 @@ paths:
           schema:
             type: integer
             default: 1
+        - $ref: '#/components/parameters/Limit'
       responses:
         '200':
           description: Truy xuất danh sách lịch sử thành công
@@ -44,7 +45,7 @@ paths:
         '400':
           $ref: '#/components/responses/400BadRequest'
 
-  # === PATH 2: Gửi sự kiện quẹt thẻ từ thiết bị ngoại vi (Sử dụng dữ liệu đa hình) ===
+  # === PATH 2: Gửi sự kiện quẹt thẻ từ thiết bị ngoại vi ===
   /api/v1/access-logs/verify:
     post:
       summary: Xác thực quyền ra vào từ thiết bị cổng
@@ -90,42 +91,30 @@ paths:
           content:
             application/json:
               schema:
-<<<<<<< HEAD
                 $ref: '#/components/schemas/AccessLogResponse'
-=======
-                $ref: '#/components/schemas/AccessLog'
               examples:
                 allowed:
                   value:
-                    logId: log-001
-                    cardId: card-001
-                    gateId: gate-main
-                    direction: IN
-                    timestamp: '2026-05-15T08:00:00Z'
-                    status: ALLOWED
-                    operatorNote: null
-                    event:
-                      eventType: CARD_SWIPE
-                      readerId: reader-main-in
-                      cardId: card-001
-                manualOverride:
+                    id: "log-001"
+                    timestamp: "2026-05-15T08:00:00Z"
+                    status: "ALLOWED"
+                    verification_details:
+                      method_type: "CARD"
+                      card_uid: "UID-88-AA-BB-CC"
+                      student_id: "DNU-22104055"
+                denied:
                   value:
-                    logId: log-045
-                    cardId: card-020
-                    gateId: gate-lab-a
-                    direction: IN
-                    timestamp: '2026-05-15T10:42:00Z'
-                    status: DENIED
-                    operatorNote: Visitor used temporary ID check.
-                    event:
-                      eventType: MANUAL_OVERRIDE
-                      operatorId: guard-001
-                      reason: Card chip failed and identity was verified manually.
+                    id: "log-045"
+                    timestamp: "2026-05-15T10:42:00Z"
+                    status: "DENIED"
+                    verification_details:
+                      method_type: "FACE"
+                      face_id: "FACE-ID-9912"
+                      confidence_score: 0.45
         '401':
-          $ref: '#/components/responses/Unauthorized'
+          $ref: '#/components/responses/401Unauthorized'
         '403':
-          $ref: '#/components/responses/Forbidden'
->>>>>>> 58f57a767c0196f3104ccbc22609a69027265d87
+          $ref: '#/components/responses/403Forbidden'
         '404':
           $ref: '#/components/responses/404NotFound'
 
@@ -166,55 +155,13 @@ paths:
           $ref: '#/components/responses/404NotFound'
 
 components:
-<<<<<<< HEAD
-  responses:
-    400BadRequest:
-      description: Yêu cầu dữ liệu không hợp lệ (Cấu trúc Problem Details chuẩn RFC 7807)
-      content:
-        application/problem+json:
-          schema:
-            $ref: '#/components/schemas/ProblemDetails'
-    404NotFound:
-      description: Không tìm thấy tài nguyên yêu cầu trên hệ thống
-      content:
-        application/problem+json:
-          schema:
-            $ref: '#/components/schemas/ProblemDetails'
-
-=======
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
+
   parameters:
-    LogId:
-      name: logId
-      in: path
-      required: true
-      description: Access log identifier.
-      schema:
-        type: string
-        pattern: '^log-[0-9]{3,}$'
-      example: log-001
-    GateId:
-      name: gateId
-      in: path
-      required: true
-      description: Gate identifier.
-      schema:
-        type: string
-        pattern: '^gate-[a-z0-9-]+$'
-      example: gate-main
-    CardId:
-      name: cardId
-      in: path
-      required: true
-      description: Card identifier.
-      schema:
-        type: string
-        pattern: '^card-[0-9]{3,}$'
-      example: card-001
     Limit:
       name: limit
       in: query
@@ -226,35 +173,33 @@ components:
         maximum: 100
         default: 20
       example: 20
-    FromTime:
-      name: from
-      in: query
-      required: false
-      description: Start time for filtering logs.
-      schema:
-        type: string
-        format: date-time
-      example: '2026-05-15T00:00:00Z'
-    ToTime:
-      name: to
-      in: query
-      required: false
-      description: End time for filtering logs.
-      schema:
-        type: string
-        format: date-time
-      example: '2026-05-15T23:59:59Z'
-    CorrelationId:
-      name: X-Correlation-Id
-      in: header
-      required: false
-      description: Request correlation id for tracing.
-      schema:
-        type: string
-        minLength: 8
-        maxLength: 100
-      example: corr-20260515-0001
->>>>>>> 58f57a767c0196f3104ccbc22609a69027265d87
+
+  responses:
+    400BadRequest:
+      description: Yêu cầu dữ liệu không hợp lệ (Cấu trúc Problem Details chuẩn RFC 7807)
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    401Unauthorized:
+      description: Không có quyền truy cập hệ thống
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    403Forbidden:
+      description: Bị từ chối truy cập tài nguyên
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    404NotFound:
+      description: Không tìm thấy tài nguyên yêu cầu trên hệ thống
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+
   schemas:
     # 1. Tiêu chí: Khai báo dữ liệu đầu vào sử dụng Union type với "null" ở trường snapshot_url
     AccessVerificationRequest:
