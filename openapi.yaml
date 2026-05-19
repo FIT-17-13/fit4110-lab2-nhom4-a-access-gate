@@ -90,7 +90,42 @@ paths:
           content:
             application/json:
               schema:
+<<<<<<< HEAD
                 $ref: '#/components/schemas/AccessLogResponse'
+=======
+                $ref: '#/components/schemas/AccessLog'
+              examples:
+                allowed:
+                  value:
+                    logId: log-001
+                    cardId: card-001
+                    gateId: gate-main
+                    direction: IN
+                    timestamp: '2026-05-15T08:00:00Z'
+                    status: ALLOWED
+                    operatorNote: null
+                    event:
+                      eventType: CARD_SWIPE
+                      readerId: reader-main-in
+                      cardId: card-001
+                manualOverride:
+                  value:
+                    logId: log-045
+                    cardId: card-020
+                    gateId: gate-lab-a
+                    direction: IN
+                    timestamp: '2026-05-15T10:42:00Z'
+                    status: DENIED
+                    operatorNote: Visitor used temporary ID check.
+                    event:
+                      eventType: MANUAL_OVERRIDE
+                      operatorId: guard-001
+                      reason: Card chip failed and identity was verified manually.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+>>>>>>> 58f57a767c0196f3104ccbc22609a69027265d87
         '404':
           $ref: '#/components/responses/404NotFound'
 
@@ -131,6 +166,7 @@ paths:
           $ref: '#/components/responses/404NotFound'
 
 components:
+<<<<<<< HEAD
   responses:
     400BadRequest:
       description: Yêu cầu dữ liệu không hợp lệ (Cấu trúc Problem Details chuẩn RFC 7807)
@@ -145,6 +181,80 @@ components:
           schema:
             $ref: '#/components/schemas/ProblemDetails'
 
+=======
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    LogId:
+      name: logId
+      in: path
+      required: true
+      description: Access log identifier.
+      schema:
+        type: string
+        pattern: '^log-[0-9]{3,}$'
+      example: log-001
+    GateId:
+      name: gateId
+      in: path
+      required: true
+      description: Gate identifier.
+      schema:
+        type: string
+        pattern: '^gate-[a-z0-9-]+$'
+      example: gate-main
+    CardId:
+      name: cardId
+      in: path
+      required: true
+      description: Card identifier.
+      schema:
+        type: string
+        pattern: '^card-[0-9]{3,}$'
+      example: card-001
+    Limit:
+      name: limit
+      in: query
+      required: false
+      description: Maximum number of logs returned.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+      example: 20
+    FromTime:
+      name: from
+      in: query
+      required: false
+      description: Start time for filtering logs.
+      schema:
+        type: string
+        format: date-time
+      example: '2026-05-15T00:00:00Z'
+    ToTime:
+      name: to
+      in: query
+      required: false
+      description: End time for filtering logs.
+      schema:
+        type: string
+        format: date-time
+      example: '2026-05-15T23:59:59Z'
+    CorrelationId:
+      name: X-Correlation-Id
+      in: header
+      required: false
+      description: Request correlation id for tracing.
+      schema:
+        type: string
+        minLength: 8
+        maxLength: 100
+      example: corr-20260515-0001
+>>>>>>> 58f57a767c0196f3104ccbc22609a69027265d87
   schemas:
     # 1. Tiêu chí: Khai báo dữ liệu đầu vào sử dụng Union type với "null" ở trường snapshot_url
     AccessVerificationRequest:
