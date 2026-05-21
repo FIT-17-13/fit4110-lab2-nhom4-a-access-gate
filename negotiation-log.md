@@ -1,109 +1,116 @@
-# API Contract Negotiation Log
+# Bien ban dam phan hop dong API
 
-- Negotiation pair: Pair 3 - Core Business -> Access Gate
+- Cap dam phan: Pair 3 - Core Business -> Access Gate
 - Product: A3
 - Provider: Access Gate
 - Consumer: Core Business
-- Version: v1.0
-- Date: 2026-05-15
+- Phien: v1.0
+- Ngay: 2026-05-15
 
 ---
 
-## Issue #1 - Access log retention
+## Issue #1 - Thoi gian luu access log
 
-- Raised by: Consumer
+- Ben neu van de: Consumer
 - Endpoint: `GET /access/logs/recent`, `GET /access/logs/{logId}`
-- Concern: Core Business needs to audit access activity after incidents.
-- Proposal: Access Gate keeps logs for at least 30 days.
-- Resolution: Accepted
-- Rationale: 30 days is enough for the Lab 02 audit scenario and keeps Provider storage assumptions realistic.
-- Impact: Provider documents retention in analysis; Consumer does not assume older logs are available.
+- Boi canh: Core Business can xem lai lich su ra vao khi co su co hoac can audit.
+- Van de: Neu Access Gate luu log qua ngan, Core Business se khong du du lieu de dieu tra.
+- De xuat: Access Gate luu access log toi thieu 30 ngay.
+- Quyet dinh: Chap nhan.
+- Rationale: Moc 30 ngay du cho tinh huong audit trong Lab 02 va van hop ly voi gia dinh luu tru cua Provider.
+- Tac dong: Provider ghi ro gia dinh retention; Consumer khong mac dinh co the truy van log cu hon 30 ngay.
 
 ---
 
-## Issue #2 - Recent log pagination and limit
+## Issue #2 - Gioi han so luong recent logs
 
-- Raised by: Provider
+- Ben neu van de: Provider
 - Endpoint: `GET /access/logs/recent`
-- Concern: Returning too many logs can make responses slow and difficult to mock.
-- Proposal: Add `limit` query parameter with default 20 and maximum 100.
-- Resolution: Accepted
-- Rationale: Bounded response size makes the API predictable for both Prism mock and future implementation.
-- Impact: Consumer must request smaller pages and use `nextCursor` when more logs exist.
+- Boi canh: Core Business can lay danh sach log gan day de audit nhanh.
+- Van de: Neu tra ve qua nhieu log trong mot request, response co the lon va cham.
+- De xuat: Them query parameter `limit`, mac dinh 20, toi da 100.
+- Quyet dinh: Chap nhan.
+- Rationale: Gioi han kich thuoc response giup API de du doan, de mock bang Prism va de trien khai that sau nay.
+- Tac dong: Consumer can goi theo tung trang nho va dung `nextCursor` neu con du lieu.
 
 ---
 
-## Issue #3 - Direction values
+## Issue #3 - Chuan hoa gia tri direction
 
-- Raised by: Consumer
+- Ben neu van de: Consumer
 - Endpoint: AccessLog schema
-- Concern: Consumer and Provider may use different names for entry and exit.
-- Proposal: Use only `IN` and `OUT`.
-- Resolution: Accepted
-- Rationale: A small enum prevents ambiguity in audit reports.
-- Impact: Provider maps local hardware values into the agreed enum before returning the response.
+- Boi canh: Log ra vao can cho biet nguoi dung di vao hay di ra.
+- Van de: Hai ben co the dung ten khac nhau nhu `ENTER`, `EXIT`, `IN`, `OUT`.
+- De xuat: Chi dung hai gia tri `IN` va `OUT`.
+- Quyet dinh: Chap nhan.
+- Rationale: Enum ngan gon giup Consumer xu ly thong nhat va tranh hieu sai trong bao cao audit.
+- Tac dong: Provider phai map gia tri tu thiet bi cong sang enum da thong nhat truoc khi tra response.
 
 ---
 
-## Issue #4 - Access log status values
+## Issue #4 - Chuan hoa trang thai access log
 
-- Raised by: Provider
+- Ben neu van de: Provider
 - Endpoint: AccessLog schema
-- Concern: Access attempts can succeed, fail by policy, or fail because of device/system error.
-- Proposal: Use `ALLOWED`, `DENIED`, and `ERROR`.
-- Resolution: Accepted
-- Rationale: These values separate business denial from technical failure.
-- Impact: Consumer can display or aggregate the three outcomes separately.
+- Boi canh: Mot lan quet the co the thanh cong, bi tu choi, hoac loi do thiet bi/he thong.
+- Van de: Neu chi tra thanh cong/that bai thi Consumer kho phan biet loi ky thuat voi tu choi nghiep vu.
+- De xuat: Dung cac gia tri `ALLOWED`, `DENIED`, va `ERROR`.
+- Quyet dinh: Chap nhan.
+- Rationale: Ba gia tri nay tach ro truy cap thanh cong, truy cap bi tu choi va loi he thong.
+- Tac dong: Consumer co the hien thi va thong ke rieng tung loai ket qua.
 
 ---
 
-## Issue #5 - Card lifecycle status
+## Issue #5 - Trang thai vong doi cua card
 
-- Raised by: Consumer
+- Ben neu van de: Consumer
 - Endpoint: `GET /cards/{cardId}`
-- Concern: Core Business needs to know why a card cannot be used.
-- Proposal: Use `ACTIVE`, `BLOCKED`, and `EXPIRED`.
-- Resolution: Accepted
-- Rationale: These states are enough for the current A3 integration and match the user story.
-- Impact: Provider must not return free-text card status values.
+- Boi canh: Core Business can biet the con hieu luc hay khong.
+- Van de: Neu Provider tra trang thai dang text tu do, Consumer kho xu ly bang logic on dinh.
+- De xuat: Card status chi gom `ACTIVE`, `BLOCKED`, va `EXPIRED`.
+- Quyet dinh: Chap nhan.
+- Rationale: Ba trang thai nay du cho tich hop A3 hien tai va phu hop user story.
+- Tac dong: Provider khong tra card status ngoai enum neu chua dam phan version moi.
 
 ---
 
-## Issue #6 - Gate operational status
+## Issue #6 - Trang thai hoat dong cua gate
 
-- Raised by: Consumer
+- Ben neu van de: Consumer
 - Endpoint: `GET /gates/{gateId}/status`
-- Concern: Core Business needs to distinguish outage from planned maintenance.
-- Proposal: Use `ONLINE`, `OFFLINE`, and `MAINTENANCE`.
-- Resolution: Accepted
-- Rationale: Maintenance should not be treated the same as unexpected offline failure.
-- Impact: Consumer can show a clearer operational state.
+- Boi canh: Core Business can biet cong co dang hoat dong binh thuong khong.
+- Van de: Can phan biet cong bi loi bat ngo voi cong dang bao tri co ke hoach.
+- De xuat: Gate status gom `ONLINE`, `OFFLINE`, va `MAINTENANCE`.
+- Quyet dinh: Chap nhan.
+- Rationale: `MAINTENANCE` khong nen bi hieu giong `OFFLINE` vi tac dong van hanh khac nhau.
+- Tac dong: Consumer co the hien thi trang thai van hanh ro rang hon.
 
 ---
 
-## Issue #7 - Error response and tracing
+## Issue #7 - Chuan loi va truy vet request
 
-- Raised by: Provider
-- Endpoint: All 4xx/5xx responses
-- Concern: Inconsistent error formats make integration debugging slow.
-- Proposal: Use Problem Details with `type`, `title`, `status`, `detail`, `instance`, and `correlationId`.
-- Resolution: Accepted
-- Rationale: A shared error schema lets both teams trace and diagnose failures consistently.
-- Impact: All error responses in `openapi.yaml` reference `ProblemDetails`.
+- Ben neu van de: Provider
+- Endpoint: Tat ca response loi 4xx/5xx
+- Boi canh: Khi tich hop nhieu service, loi can co format thong nhat de debug.
+- Van de: Neu moi endpoint tra loi theo mot kieu rieng, Consumer kho xu ly va kho trace loi.
+- De xuat: Tat ca loi 4xx/5xx dung Problem Details voi `type`, `title`, `status`, `detail`, `instance`, va `correlationId`.
+- Quyet dinh: Chap nhan.
+- Rationale: Mot schema loi dung chung giup hai ben trace va chan doan loi nhanh hon.
+- Tac dong: Moi error response trong `openapi.yaml` tham chieu schema `Problem`.
 
 ---
 
-# Contract v1.0 Sign-off
+# Chot hop dong v1.0
 
 Provider sign-off: Access Gate team  
 Consumer sign-off: Core Business team  
-Witness (GV/TA): Lê Trang  
+Witness (GV/TA):  
 Date: 2026-05-15
 
 ---
 
-## Spectral Warnings
+## Ghi chu warning Spectral
 
-| Warning | Temporary acceptance reason | Fix plan |
+| Warning | Ly do chap nhan tam thoi | Ke hoach sua |
 |---|---|---|
-| None expected | N/A | Keep `npm run lint` passing before submission |
+| Khong co warning nghiem trong | N/A | Tiep tuc giu `npm run lint` pass truoc khi nop |
