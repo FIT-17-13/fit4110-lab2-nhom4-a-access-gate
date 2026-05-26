@@ -1,0 +1,15 @@
+{
+  "eventId": "evt-20260526-0001",
+  "eventType": "access.logs.created",
+  "eventVersion": "1.0.0",
+  "occurredAt": "2026-05-26T08:00:00Z",
+  "source": "access-gate",
+  "correlationId": "corr-20260526-0001",
+  "data": {
+    "logId": "log-7788",
+    "cardId": "RFID-2026-001",
+    "gateId": "gate-main-01",
+    "direction": "IN",
+    "status": "ALLOWED"
+  }
+}

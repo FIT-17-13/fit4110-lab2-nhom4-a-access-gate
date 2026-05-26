@@ -137,3 +137,68 @@ Date: 2026-05-26
 ## Ghi chu Lab 3
 
 Pair 9 (Access Gate -> Analytics) la queue async. Lab 2 ghi nhan so bo de chuyen sang Lab 3 voi topic de xuat `access.logs.created`.
+
+---
+
+# Phan C - Pair 9: Access Gate -> Analytics
+
+- Producer: Access Gate
+- Consumer: Analytics
+- Mechanism: Queue async; Lab 03 mock by `POST /events`
+- Event type: `access.logs.created`
+- Event version: `1.0.0`
+- Idempotency: Analytics uses `eventId`
+
+## Issue #11 - Event envelope chung
+
+- Raised by: Analytics
+- Concern: Analytics nhan event tu nhieu service nen can mot event envelope thong nhat.
+- Proposal: Boc payload access log trong envelope gom `eventId`, `eventType`, `eventVersion`, `occurredAt`, `source`, `correlationId`, va `data`.
+- Resolution: Accepted.
+- Rationale: Envelope chung giup Analytics xu ly versioning, tracing va idempotency thong nhat.
+- Impact: Access Gate publish event `access.logs.created` theo dung envelope da chot.
+
+## Issue #12 - Required fields va enum
+
+- Raised by: Analytics
+- Concern: Analytics can field toi thieu de tinh metric access theo cong, huong, trang thai va thoi gian.
+- Proposal: Required fields gom `eventId`, `eventType`, `eventVersion`, `occurredAt`, `source`, `correlationId`, `data.logId`, `data.cardId`, `data.gateId`, `data.direction`, `data.status`.
+- Resolution: Accepted.
+- Rationale: Cac field nay du de tinh tong so luot access, IN/OUT, ALLOWED/DENIED/ERROR va thong ke theo gateId.
+- Impact: Access Gate phai luon gui day du required fields.
+
+## Issue #13 - Idempotency
+
+- Raised by: Analytics
+- Concern: Khi retry hoac queue gui lai message, Analytics co the nhan trung event.
+- Proposal: Dung `eventId` lam idempotency key.
+- Resolution: Accepted.
+- Rationale: `eventId` la ma duy nhat cua event va khong thay doi khi retry.
+- Impact: Access Gate khong tao `eventId` moi khi retry cung mot event.
+
+## Issue #14 - Lab 03 mock endpoint
+
+- Raised by: Analytics
+- Concern: Broker that chua can chot trong Lab 2, nhung Lab 3 can co cach test event ingestion.
+- Proposal: Analytics mock bang endpoint `POST /events` va test bang Postman/Newman.
+- Resolution: Accepted.
+- Rationale: HTTP mock giup hai nhom test schema truoc khi chot RabbitMQ/Kafka/MQTT.
+- Impact: OpenAPI bo sung `POST /events` voi response `202 Accepted`.
+
+## Issue #15 - Error response cua event ingestion
+
+- Raised by: Analytics
+- Concern: Can phan biet payload thieu field voi payload sai nghiep vu/enum.
+- Proposal: Thieu required field tra `400 Bad Request`; enum sai nhu `direction=ENTER` hoac `status=SUCCESS` tra `422 Unprocessable Entity`; ca hai dung Problem Details.
+- Resolution: Accepted.
+- Rationale: Tach validation syntax va semantic validation giup debug de hon.
+- Impact: Access Gate can test ca success va error case trong Lab 3.
+
+## Issue #16 - Optional fields va broker config
+
+- Raised by: Both teams
+- Concern: Access Gate co the co them `personId`, `buildingId`, `readerId`, `reasonCode`, `riskLevel`, nhung khong phai field nao cung bat buoc.
+- Proposal: `personId` duoc uu tien hon `studentId`; `riskLevel` optional voi enum `low`, `medium`, `high`, `critical`. Broker, retry, DLQ va ack strategy se chot khi tich hop that.
+- Resolution: Accepted.
+- Rationale: Giu event contract toi thieu on dinh, nhung van mo rong duoc khi co them du lieu.
+- Impact: Lab 2 ghi nhan contract; Lab 3 tiep tuc mock `/events` truoc khi dung broker that.

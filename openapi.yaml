@@ -18,6 +18,8 @@ tags:
     description: Pair 3 - API do Access Gate cung cap cho Core Business.
   - name: pair-10-core-business-provider
     description: Pair 10 - API do Core Business cung cap de Access Gate goi kiem tra policy.
+  - name: pair-9-analytics-events
+    description: Pair 9 - Event contract Access Gate gui sang Analytics, Lab 3 mock bang POST /events.
   - name: health
     description: Kiem tra trang thai service.
 security:
@@ -287,6 +289,55 @@ paths:
           $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/InternalServerError'
+  /events:
+    post:
+      tags: [pair-9-analytics-events]
+      summary: Analytics nhan event access log
+      description: Pair 9 - Lab 3 mock endpoint de Analytics nhan event access.logs.created tu Access Gate.
+      operationId: ingestAccessLogEvent
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccessLogCreatedEvent'
+            examples:
+              accessLogCreated:
+                value:
+                  eventId: evt-20260526-0001
+                  eventType: access.logs.created
+                  eventVersion: 1.0.0
+                  occurredAt: '2026-05-26T08:00:00Z'
+                  source: access-gate
+                  correlationId: corr-20260526-0001
+                  data:
+                    logId: log-7788
+                    cardId: RFID-2026-001
+                    gateId: gate-main-01
+                    direction: IN
+                    status: ALLOWED
+      responses:
+        '202':
+          description: Event accepted for analytics processing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventAccepted'
+              examples:
+                accepted:
+                  value:
+                    accepted: true
+                    eventId: evt-20260526-0001
+                    status: accepted
+                    message: Event accepted for analytics processing
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
 components:
   securitySchemes:
     bearerAuth:
@@ -572,6 +623,91 @@ components:
             type: string
             enum: [STUDENT, LECTURER, STAFF, SECURITY]
           example: [LECTURER, STAFF]
+    AccessLogCreatedEvent:
+      type: object
+      additionalProperties: false
+      required: [eventId, eventType, eventVersion, occurredAt, source, correlationId, data]
+      properties:
+        eventId:
+          type: string
+          example: evt-20260526-0001
+        eventType:
+          type: string
+          enum: [access.logs.created]
+          example: access.logs.created
+        eventVersion:
+          type: string
+          enum: [1.0.0]
+          example: 1.0.0
+        occurredAt:
+          type: string
+          format: date-time
+          example: '2026-05-26T08:00:00Z'
+        source:
+          type: string
+          enum: [access-gate]
+          example: access-gate
+        correlationId:
+          type: string
+          example: corr-20260526-0001
+        data:
+          $ref: '#/components/schemas/AccessLogCreatedData'
+    AccessLogCreatedData:
+      type: object
+      additionalProperties: false
+      required: [logId, cardId, gateId, direction, status]
+      properties:
+        logId:
+          type: string
+          example: log-7788
+        cardId:
+          type: string
+          example: RFID-2026-001
+        gateId:
+          type: string
+          example: gate-main-01
+        direction:
+          type: string
+          enum: [IN, OUT]
+          example: IN
+        status:
+          type: string
+          enum: [ALLOWED, DENIED, ERROR]
+          example: ALLOWED
+        personId:
+          type: string
+          example: SV001
+        buildingId:
+          type: string
+          example: building-a
+        readerId:
+          type: string
+          example: reader-main-01
+        reasonCode:
+          type: string
+          example: VALID_CARD
+        riskLevel:
+          type: string
+          enum: [low, medium, high, critical]
+          example: low
+    EventAccepted:
+      type: object
+      additionalProperties: false
+      required: [accepted, eventId, status, message]
+      properties:
+        accepted:
+          type: boolean
+          example: true
+        eventId:
+          type: string
+          example: evt-20260526-0001
+        status:
+          type: string
+          enum: [accepted]
+          example: accepted
+        message:
+          type: string
+          example: Event accepted for analytics processing
     Problem:
       type: object
       additionalProperties: false
@@ -630,12 +766,20 @@ components:
         application/problem+json:
           schema:
             $ref: '#/components/schemas/Problem'
+    UnprocessableEntity:
+      description: JSON dung cu phap nhung sai nghiep vu hoac enum khong hop le
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
     InternalServerError:
       description: Loi server
       content:
         application/problem+json:
           schema:
             $ref: '#/components/schemas/Problem'
+
+
 
 
 
