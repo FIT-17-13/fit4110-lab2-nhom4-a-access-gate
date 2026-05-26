@@ -1,0 +1,8 @@
+{
+  "cardId": "RFID-2026-001",
+  "gateId": "gate-main-01",
+  "direction": "IN",
+  "timestamp": "2026-05-26T08:00:00Z",
+  "idempotencyKey": "RFID-2026-001-gate-main-01-20260526080000",
+  "operatorNote": "none"
+}

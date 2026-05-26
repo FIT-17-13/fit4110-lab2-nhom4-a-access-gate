@@ -1,56 +1,70 @@
-# Consumer Analysis - Core Business (Smart Campus)
+﻿# Phan tich yeu cau - vai Consumer
 
-- Pair: Core Business -> Access Gate
-- Role: Consumer
-- Version: v1.0
-- Date: 2026-05-19
+- Cap phu thuoc: Pair 10 (Access Gate -> Core Business)
+- Product: A3
+- Consumer service: Access Gate
+- Provider service: Core Business
+- Ngay cap nhat: 2026-05-26
 
-## Business Analysis
-Core Business consumes Access Gate APIs to support security audit, incident review, and operational visibility across campus gates.  
-Consumer decisions depend on accurate log history, current gate state, and card lifecycle status.
+---
 
-## Functional Requirements
-1. Call `GET /access/logs/recent` to fetch recent access activity for audit workflows.
-2. Call `GET /access/logs/{logId}` to inspect a specific incident record.
-3. Call `GET /gates/{gateId}/status` to check gate operability before actions.
-4. Call `GET /cards/{cardId}` to determine card validity for business rules.
-5. Parse both event variants (`CARD_SWIPE`, `MANUAL_OVERRIDE`) correctly.
-6. Display nullable optional fields safely (`operatorNote`, `maintenanceReason`, `nextCursor`).
+## 1. Du lieu Consumer can gui va nhan tu Provider
 
-## Non-Functional Requirements
-1. Reliable integration with schema-driven parsing (OpenAPI-first).
-2. Fast operator experience through paged retrieval (bounded `limit`).
-3. Traceability in logs using propagated `X-Correlation-Id`.
-4. Resilience with retry/backoff only for retryable failures (`500`/timeout).
-5. Compatibility with contract enums and field naming across releases.
+| Thuc the du lieu | Muc dich su dung | Truong bat buoc | Truong tuy chon |
+|---|---|---|---|
+| `AccessRequest` | Gui thong tin quet the RFID len Core Business de chay luat phe duyet | `cardId`, `gateId`, `direction`, `timestamp`, `idempotencyKey`, `operatorNote` | none |
+| `AccessDecision` | Nhan ket qua phe duyet de dieu khien dong/mo cong vat ly | `decisionId`, `allow`, `reasonCode`, `policyId`, `expiresAt`, `operatorNote` | none |
+| `AccessPolicy` | Nhan thong tin policy da ap dung cho decision | `policyType`, `policyId`, `name` | tuy loai policy |
 
-## API Expectations
-1. Send bearer token for all protected endpoints.
-2. Send optional `X-Correlation-Id` per request for end-to-end tracing.
-3. Use query filters (`from`, `to`, `limit`) for controlled access-log queries.
-4. Expect success payloads from shared schemas (`AccessLogList`, `AccessLog`, `GateStatus`, `Card`).
-5. Expect Problem Details for all handled error statuses.
+---
 
-## Security Concerns
-1. Store and rotate service tokens securely; never log raw tokens.
-2. Enforce least-privilege access for service account scopes.
-3. Restrict exposure of sensitive access-log data in UI/export.
-4. Sanitize user-visible error details to avoid information leakage.
+## 2. API Consumer se goi sang Core Business
 
-## Error Handling
-Consumer behavior by status:
-- `400`: correct request data before retry.
-- `401`: refresh/fix token configuration.
-- `403`: stop retry and escalate as permission issue.
-- `404`: show resource-not-found state and continue workflow.
-- `500`: retry with backoff and include correlation id in incident log.
+| HTTP Method | URL Path | Thoi diem kich hoat | Ket qua ky vong |
+|---|---|---|---|
+| POST | `/access/check` | Ngay khi dau doc RFID nhan dien duoc the tai cong | Tra ve `allow=true/false` va `reasonCode` |
+| GET | `/decisions/{decisionId}` | Khi Access Gate can truy van lai ket qua da tao | Tra ve `AccessDecision` |
+| GET | `/policies/access/{policyId}` | Khi Access Gate can xem policy duoc ap dung | Tra ve `AccessPolicy` voi `oneOf` + `discriminator` |
 
-Consumer must always parse Problem Details fields: `type`, `title`, `status`, `detail`, `instance`, `correlationId`.
+---
 
-## Data Validation
-1. Validate local input formats for `logId`, `gateId`, `cardId` before API call.
-2. Validate `from <= to` and valid ISO date-time values.
-3. Keep `limit` within provider contract range `[1,100]`.
-4. Validate enums strictly and handle unknown values as integration alerts.
-5. Branch event parsing by discriminator `eventType`.
-6. Treat contract-defined nullable fields as optional at rendering and business-rule layers.
+## 3. Error case Consumer phai xu ly
+
+Core Business ap dung chuan RFC 7807 (`application/problem+json`). Access Gate can xu ly toi thieu cac tinh huong sau:
+
+| HTTP Status | Nguyen nhan tu Provider | Phuong an xu ly phia Access Gate |
+|---:|---|---|
+| 400 | JSON sai cau truc hoac thieu `cardId`, `gateId`, `idempotencyKey` | Ghi log loi thiet bi, hien thi loi, khong mo cong |
+| 401 | Bearer token het han hoac khong hop le | Log loi bao mat, refresh token neu co, giu cong dong |
+| 404 | Endpoint/policy/decision khong ton tai | Bao loi cau hinh, tu choi mo cong |
+| 409 | Trung `idempotencyKey` hoac xung dot request | Khong gui lap lai lien tuc, lay decision cu neu Provider ho tro |
+| 500 | Core Business loi noi bo hoac qua tai | Fail-closed, giu cong dong va ghi log khan cap |
+| Timeout | Core Business khong phan hoi trong 500ms | Huy request va fail-closed |
+
+---
+
+## 4. Gia dinh nghiep vu
+
+- Access Gate sinh `idempotencyKey` bang `cardId + gateId + timestamp lam tron theo giay` de tranh xu ly trung khi quet the lien tuc.
+- `operatorNote` dung OpenAPI 3.1 union type `type: [string, "null"]`.
+- Neu the bi khoa, Core Business tra HTTP 200 voi `allow=false` va `reasonCode=CARD_BLOCKED`.
+- Timeout phia Access Gate la 500ms; neu timeout thi fail-closed.
+- `AccessPolicy` dung `policyType` lam discriminator voi hai loai `timeBased` va `roleBased`.
+
+---
+
+## 5. Cau hoi cho Provider Core Business
+
+1. Base URL that cua Core Business khi test tich hop la gi?
+2. Danh sach `reasonCode` co can bo sung ngoai contract hien tai khong?
+3. Core Business co ho tro truy van lai decision bang `decisionId` khong?
+
+---
+
+## 6. Rui ro tich hop
+
+| Rui ro | Tac dong | Cach xu ly |
+|---|---|---|
+| Core Business phan hoi cham | Cong bi treo hoac un tac | Timeout 500ms va fail-closed |
+| Thieu idempotencyKey | Request trung lap tao canh bao rac | Bat buoc `idempotencyKey` trong `AccessRequest` |
+| Provider tra enum moi | Access Gate parse sai | Moi enum moi phai dam phan version truoc |

@@ -1,57 +1,68 @@
-# Provider Analysis - Access Gate (Smart Campus)
+﻿# Phan tich yeu cau - vai Provider
 
-- Pair: Core Business -> Access Gate
-- Role: Provider
-- Version: v1.0
-- Date: 2026-05-19
+- Cap phu thuoc: Pair 3 (Core Business -> Access Gate)
+- Product: A3
+- Provider service: Access Gate
+- Consumer service: Core Business
+- Ngay cap nhat: 2026-05-26
 
-## Business Analysis
-Access Gate provides trusted operational data for Core Business to audit entry/exit activity, verify gate availability, and validate card lifecycle state.  
-The provider scope is read APIs for logs, gate status, and card details, with consistent business semantics.
+---
 
-## Functional Requirements
-1. Expose `GET /access/logs/recent` with optional time range and `limit`.
-2. Expose `GET /access/logs/{logId}` for single-log investigation.
-3. Expose `GET /gates/{gateId}/status` for operational monitoring.
-4. Expose `GET /cards/{cardId}` for card state checks.
-5. Return standardized enums:
-`direction` = `IN|OUT`, `access status` = `ALLOWED|DENIED|ERROR`, `gate status` = `ONLINE|OFFLINE|MAINTENANCE`, `card status` = `ACTIVE|BLOCKED|EXPIRED`.
-6. Return polymorphic `event` using `oneOf + discriminator` (`CARD_SWIPE`, `MANUAL_OVERRIDE`).
+## 1. Resource chinh Access Gate cung cap
 
-## Non-Functional Requirements
-1. Contract-first OpenAPI 3.1.0 and Spectral-lint compliant.
-2. Predictable payload size (`limit` default 20, max 100).
-3. Observability via correlation id (`X-Correlation-Id`).
-4. Backward compatibility for agreed field names and enums in v1.
-5. Log retention baseline: at least 30 days for audit flow.
+| Resource | Mo ta | Truong bat buoc | Truong tuy chon |
+|---|---|---|---|
+| `AccessLogItem` | Mot ban ghi lich su quet the tai cong | `logId`, `cardId`, `gateId`, `direction`, `timestamp`, `status` | `operatorNote` |
+| `GateStatus` | Trang thai hoat dong cua cong | `gateId`, `status`, `lastHeartbeatAt` | `maintenanceReason` |
+| `Card` | Thong tin the RFID trong he thong Access Gate | `cardId`, `holderId`, `status`, `expiresAt` | none |
 
-## API Expectations
-1. Content type for success: `application/json`.
-2. Content type for errors: `application/problem+json`.
-3. Nullable fields represented by union type with `null` (OpenAPI 3.1 style).
-4. Reusable schemas and responses via `components` + `$ref`.
-5. `/health` is unauthenticated; business endpoints require bearer token.
+---
 
-## Security Concerns
-1. Enforce Bearer token authentication on protected endpoints.
-2. Enforce authorization boundaries for sensitive card/log/gate resources.
-3. Avoid leaking internal infrastructure details in error `detail`.
-4. Track and investigate suspicious repeated access attempts by correlation id.
+## 2. API Provider cung cap cho Core Business
 
-## Error Handling
-Use Problem Details schema for all non-2xx responses:
-- `400`: invalid query/path/header format.
-- `401`: missing or invalid token.
-- `403`: authenticated but not authorized.
-- `404`: resource not found (`logId`, `gateId`, `cardId`).
-- `500`: provider internal failure or downstream read error.
+| Method | Path | Muc dich | Khi nao Consumer goi? |
+|---|---|---|---|
+| GET | `/access/logs/recent` | Lay danh sach log quet the gan day | Core Business can audit hoat dong ra vao |
+| GET | `/access/logs/{logId}` | Lay chi tiet mot access log | Core Business can dieu tra mot su kien cu the |
+| GET | `/gates/{gateId}/status` | Lay trang thai cong | Core Business can biet cong online/offline/maintenance |
+| GET | `/cards/{cardId}` | Lay thong tin the | Core Business can kiem tra the active/blocked/expired |
 
-Each error response includes: `type`, `title`, `status`, `detail`, `instance`, `correlationId`.
+---
 
-## Data Validation
-1. Validate identifier patterns (`log-*`, `gate-*`, `card-*`) before processing.
-2. Validate `from/to` as ISO `date-time` and reject invalid ranges.
-3. Validate `limit` in `[1,100]`.
-4. Validate enum values strictly and reject unknown values.
-5. Validate polymorphic event payload according to discriminator mapping.
-6. Allow nullable fields only where contract defines union with `null`.
+## 3. Error case Provider tra ve
+
+| Status | Tinh huong | Response body |
+|---:|---|---|
+| 400 | Query/path parameter sai dinh dang | `Problem` |
+| 401 | Thieu hoac sai Bearer token | `Problem` |
+| 403 | Core Business khong co quyen truy van resource | `Problem` |
+| 404 | Khong tim thay log, gate hoac card | `Problem` |
+| 500 | Access Gate loi doc log store hoac gate registry | `Problem` |
+
+---
+
+## 4. Gia dinh bo sung
+
+- `cardId` dung dinh dang thong nhat `RFID-2026-001` de khop voi Pair 10 va event Pair 9.
+- `gateId` dung dinh dang `gate-main-01`.
+- `direction` chi co `IN` hoac `OUT`.
+- `status` cua access log chi co `ALLOWED`, `DENIED`, `ERROR`.
+- Tat ca loi 4xx/5xx dung `application/problem+json` va schema `Problem`.
+
+---
+
+## 5. Cau hoi can chot voi Core Business
+
+1. Core Business co can filter log theo khoang thoi gian `from/to` khong?
+2. Core Business co chap nhan status `ALLOWED` thay vi `SUCCESS` khong?
+3. Core Business co can them field `buildingId` hoac `readerId` trong AccessLogItem khong?
+
+---
+
+## 6. Rui ro tich hop
+
+| Rui ro | Tac dong | Cach xu ly |
+|---|---|---|
+| Pair 3 va Pair 10 dung format `cardId` khac nhau | Mapping du lieu loi khi ket noi that | Chuan hoa `cardId` thanh `RFID-YYYY-NNN` |
+| Consumer mong `SUCCESS` nhung Provider tra `ALLOWED` | Core Business parse/logic sai | Chot enum trong negotiation log truoc khi code |
+| Response log qua lon | Cham API va kho mock | Dung `limit` toi da 100 va `nextCursor` |
